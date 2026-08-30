@@ -45,7 +45,7 @@ body {
   flex: 1;
   overflow-y: auto;
   padding: 16px;
-  padding-bottom: 80px;
+  padding-bottom: 90px; /* タブの高さ拡大に合わせて余白調整 */
 }
 
 .page {
@@ -54,6 +54,11 @@ body {
 
 .page.active {
   display: block;
+}
+
+/* 記録ページの入力欄を中央寄りに移動するため上部余白を設定 */
+#page-record {
+  margin-top: 40px;
 }
 
 /* ズームアップ防止：iPhone対策としてfont-sizeを16px以上に統一 */
@@ -301,7 +306,6 @@ input, select, button {
   border: 1px solid var(--border-color);
 }
 
-/* 固定費の入力エリア調整：横はみ出しを防止 */
 .fixed-amount-inputs {
   display: flex;
   gap: 8px;
@@ -311,7 +315,7 @@ input, select, button {
 
 .fixed-amount-inputs > div {
   flex: 1;
-  min-width: 0; /* フレックス要素の破綻を防止 */
+  min-width: 0;
 }
 
 .fixed-amount-inputs label {
@@ -394,7 +398,7 @@ input, select, button {
   top: 0;
   left: 0;
   width: 100%;
-  bottom: 65px;
+  bottom: 75px; /* ボトムナビの高さに合わせて変更 */
   background: var(--bg-color);
   z-index: 500;
   justify-content: center;
@@ -491,18 +495,19 @@ input, select, button {
   border: none;
 }
 
-/* ボトムナビゲーション */
+/* ボトムナビゲーション（拡大調整） */
 .bottom-nav {
   position: fixed;
   bottom: 0;
   width: 100%;
   max-width: 430px;
-  height: 65px;
+  height: 75px; /* 65px -> 75px に拡大 */
   background: var(--nav-bg);
   display: flex;
   justify-content: space-around;
   align-items: center;
   z-index: 600;
+  padding-bottom: 4px;
 }
 
 .nav-item {
@@ -512,13 +517,16 @@ input, select, button {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  font-size: 11px !important;
+  gap: 6px;
+  font-size: 13px !important; /* 11px -> 13px に拡大 */
   cursor: pointer;
+  flex: 1;
+  height: 100%;
+  justify-content: center;
 }
 
 .nav-item i {
-  font-size: 18px !important;
+  font-size: 22px !important; /* 18px -> 22px に拡大 */
 }
 
 .nav-item.active {
