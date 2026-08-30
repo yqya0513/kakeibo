@@ -127,7 +127,12 @@
           <h2>設定</h2>
         </div>
         <div class="settings-list">
-          <button class="btn-danger" onclick="exportData()">データのエクスポート (JSON)</button>
+          <button class="btn-submit" onclick="exportData()">データのエクスポート (JSON)</button>
+          
+          <label class="btn-submit" style="background: var(--accent-cyan); text-align: center; display: block; cursor: pointer;">
+            データをインポート (復元)
+            <input type="file" id="import-file" accept=".json" onchange="importData(event)" style="display: none;">
+          </label>
         </div>
       </section>
 
