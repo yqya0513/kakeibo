@@ -89,33 +89,42 @@ body {
 .date-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   margin-bottom: 12px;
 }
 
 .date-row input[type="date"] {
   flex: 1;
-  padding: 8px;
+  padding: 8px 4px;
   border: 1px solid var(--border-color);
   border-radius: 6px;
   background: #eee;
-  font-size: 15px;
+  font-size: 14px;
+}
+
+.date-shortcuts {
+  display: flex;
+  gap: 4px;
 }
 
 .date-shortcuts button {
   background: var(--accent-cyan);
   color: #fff;
   border: none;
-  padding: 8px 12px;
+  padding: 8px 10px;
   border-radius: 6px;
   font-weight: bold;
+  font-size: 13px;
   cursor: pointer;
+}
+
+.input-group {
+  margin-bottom: 12px;
 }
 
 .input-group input {
   width: 100%;
   padding: 12px;
-  margin-bottom: 12px;
   border: 1px solid var(--border-color);
   border-radius: 6px;
   font-size: 16px;
@@ -133,7 +142,77 @@ body {
   cursor: pointer;
 }
 
-/* 表示切り替えトグル */
+/* 記録タブ下の残高表示 */
+.record-summary-section {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.info-box {
+  background: #fff;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: bold;
+}
+
+.info-label {
+  font-size: 16px;
+}
+
+.info-val {
+  font-size: 18px;
+}
+
+/* 集計表示 */
+.clickable-title {
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+}
+
+.month-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.month-header button {
+  background: none;
+  border: none;
+  color: #8b5a2b;
+  font-weight: bold;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.summary-card-group {
+  background: #fff;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.summary-card {
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  font-weight: bold;
+}
+
+.summary-card.fixed-cost-sub {
+  border-top: 1px dashed var(--border-color);
+  background: #faf8f5;
+  font-size: 14px;
+}
+
 .filter-toggle {
   display: flex;
   background: var(--accent-dark);
@@ -158,38 +237,10 @@ body {
   color: var(--text-main);
 }
 
-/* 集計表示 */
-.month-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.month-header button {
-  background: none;
-  border: none;
-  color: #8b5a2b;
-  font-weight: bold;
-  font-size: 16px;
-  cursor: pointer;
-}
-
-.summary-card {
-  background: #fff;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 12px 16px;
-  display: flex;
-  justify-content: space-between;
-  font-weight: bold;
-  margin-bottom: 16px;
-}
-
 .amount.negative { color: var(--amount-red); }
 .amount.positive { color: var(--amount-blue); }
 
-/* リストアイテム */
+/* リスト表示 */
 .date-group {
   margin-bottom: 16px;
 }
@@ -212,8 +263,93 @@ body {
   align-items: center;
   margin-bottom: 6px;
   border: 1px solid var(--border-color);
+  cursor: pointer;
 }
 
+.record-item .item-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.record-item .arrow {
+  color: #ccc;
+  font-size: 14px;
+}
+
+/* 固定費画面 */
+.fixed-total-box {
+  background: #fff;
+  border-radius: 8px;
+  padding: 14px;
+  display: flex;
+  justify-content: space-between;
+  font-weight: bold;
+  margin-bottom: 16px;
+  border: 1px solid var(--border-color);
+}
+
+.fixed-amount-inputs {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.fixed-amount-inputs div {
+  flex: 1;
+}
+
+.fixed-amount-inputs label {
+  font-size: 12px;
+  color: var(--text-muted);
+  display: block;
+  margin-bottom: 4px;
+}
+
+.fixed-list-section {
+  margin-top: 20px;
+}
+
+.fixed-item {
+  background: #fff;
+  border-radius: 8px;
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.fixed-item-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.fixed-item-name {
+  font-weight: bold;
+}
+
+.fixed-item-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.fixed-item-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn-icon-delete {
+  background: none;
+  border: none;
+  color: #d9534f;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+/* 設定画面 */
 .page-header {
   text-align: center;
   padding: 8px 0;
@@ -234,6 +370,112 @@ body {
   border-radius: 6px;
   font-weight: bold;
   cursor: pointer;
+}
+
+/* モーダル (編集画面 / 年月選択) */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.modal-content {
+  width: 100%;
+  max-width: 430px;
+  background: var(--bg-color);
+  height: 100%;
+  padding: 16px;
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--nav-bg);
+  color: #fff;
+  padding: 12px 16px;
+  margin: -16px -16px 16px -16px;
+}
+
+.modal-back-btn, .modal-delete-btn {
+  background: none;
+  border: none;
+  color: #e7a8ad;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.input-with-clear {
+  position: relative;
+}
+
+.btn-clear {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #ccc;
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* ドラムロール風Picker */
+.picker-modal-content {
+  background: #fff;
+  margin-top: 40%;
+  padding: 20px;
+  border-radius: 12px;
+  width: 80%;
+  max-width: 320px;
+  text-align: center;
+}
+
+.picker-wheels {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 20px 0;
+}
+
+.picker-wheels select {
+  font-size: 18px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: #fff;
+}
+
+.picker-buttons {
+  display: flex;
+  justify-content: space-around;
+}
+
+.picker-buttons button {
+  padding: 8px 20px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: #fff;
+  cursor: pointer;
+}
+
+.picker-buttons button.primary {
+  background: var(--accent-dark);
+  color: #fff;
+  border: none;
 }
 
 /* ボトムナビゲーション */
@@ -262,7 +504,7 @@ body {
 }
 
 .nav-item i {
-  font-size: 20px;
+  font-size: 18px;
 }
 
 .nav-item.active {
