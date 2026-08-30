@@ -9,8 +9,10 @@
 </head>
 <body>
   <div class="app-container">
+    <!-- メインコンテンツ領域 -->
     <main class="content">
       
+      <!-- 1. 記録（入力）画面 -->
       <section id="page-record" class="page active">
         <div class="card input-card">
           <div class="toggle-group">
@@ -21,8 +23,9 @@
             <label>日付</label>
             <input type="date" id="entry-date">
             <div class="date-shortcuts">
-              <button onclick="setShortcutDate(-1)">前日</button>
-              <button onclick="setShortcutDate(0)">今日</button>
+              <button onclick="changeInputDate(-1)">前日</button>
+              <button onclick="setTodayDate()">今日</button>
+              <button onclick="changeInputDate(1)">翌日</button>
             </div>
           </div>
           <div class="input-group">
@@ -33,12 +36,24 @@
           </div>
           <button class="btn-submit" onclick="addRecord()">決定</button>
         </div>
+
+        <div class="record-summary-section">
+          <div class="info-box">
+            <span class="info-label">目標貯金額</span>
+            <span class="info-val">45,000</span>
+          </div>
+          <div class="info-box">
+            <span class="info-label">今月の残高</span>
+            <span id="record-month-balance" class="info-val negative">-0</span>
+          </div>
+        </div>
       </section>
 
+      <!-- 2. 月間画面 -->
       <section id="page-monthly" class="page">
         <div class="month-header">
           <button onclick="changeMonth(-1)"><i class="fa-solid fa-chevron-left"></i> 前月</button>
-          <h2 id="monthly-title">2026年8月</h2>
+          <h2 id="monthly-title" onclick="openDatePicker()" class="clickable-title">2026年8月</h2>
           <button onclick="changeMonth(1)">翌月 <i class="fa-solid fa-chevron-right"></i></button>
         </div>
         <div class="filter-toggle">
@@ -46,13 +61,20 @@
           <button class="filter-btn active" id="m-filter-both" onclick="setMonthlyFilter('both')">両方</button>
           <button class="filter-btn" id="m-filter-expense" onclick="setMonthlyFilter('expense')">支出</button>
         </div>
-        <div class="summary-card">
-          <span id="monthly-summary-label">2026年8月</span>
-          <span id="monthly-total-amount" class="amount negative">合計 -0</span>
+        <div class="summary-card-group">
+          <div class="summary-card">
+            <span id="monthly-summary-label">2026年8月</span>
+            <span id="monthly-total-amount" class="amount negative">合計 -0</span>
+          </div>
+          <div class="summary-card fixed-cost-sub">
+            <span>固定費（月額）</span>
+            <span id="monthly-fixed-cost-val" class="amount negative">-0</span>
+          </div>
         </div>
         <div id="monthly-list" class="record-list"></div>
       </section>
 
+      <!-- 3. 全期間画面 -->
       <section id="page-all" class="page">
         <div class="page-header">
           <h2>全期間</h2>
@@ -69,6 +91,37 @@
         <div id="all-period-list" class="record-list"></div>
       </section>
 
+      <!-- 4. 固定費画面 -->
+      <section id="page-fixed" class="page">
+        <div class="page-header">
+          <h2>固定費管理</h2>
+        </div>
+        <div class="fixed-total-box">
+          <span>月額固定費 合計</span>
+          <span id="fixed-total-val" class="amount negative">0</span>
+        </div>
+
+        <div class="card fixed-input-card">
+          <div class="input-group">
+            <input type="text" id="fixed-name" placeholder="内容（例: 家賃、サブスク）">
+          </div>
+          <div class="fixed-amount-inputs">
+            <div>
+              <label>月額</label>
+              <input type="number" id="fixed-monthly-input" placeholder="月額" oninput="calcFixedAmount('monthly')">
+            </div>
+            <div>
+              <label>年額</label>
+              <input type="number" id="fixed-yearly-input" placeholder="年額" oninput="calcFixedAmount('yearly')">
+            </div>
+          </div>
+          <button class="btn-submit" onclick="addFixedCost()" style="margin-top:10px;">決定</button>
+        </div>
+
+        <div id="fixed-cost-list" class="fixed-list-section"></div>
+      </section>
+
+      <!-- 5. 設定画面 -->
       <section id="page-settings" class="page">
         <div class="page-header">
           <h2>設定</h2>
@@ -81,6 +134,56 @@
 
     </main>
 
+    <!-- 編集・詳細モーダル -->
+    <div id="edit-modal" class="modal-overlay">
+      <div class="modal-content">
+        <div class="modal-header">
+          <button class="modal-back-btn" onclick="closeEditModal()"><i class="fa-solid fa-chevron-left"></i> 戻る</button>
+          <h3>編集</h3>
+          <button class="modal-delete-btn" onclick="deleteCurrentRecord()"><i class="fa-solid fa-trash-can"></i></button>
+        </div>
+        <div class="card modal-card">
+          <div class="toggle-group">
+            <button id="edit-type-income" class="toggle-btn" onclick="setEditType('income')">収入</button>
+            <button id="edit-type-expense" class="toggle-btn active" onclick="setEditType('expense')">支出</button>
+          </div>
+          <div class="date-row">
+            <label>日付</label>
+            <input type="date" id="edit-date">
+            <div class="date-shortcuts">
+              <button onclick="changeEditInputDate(-1)">前日</button>
+              <button onclick="setEditTodayDate()">今日</button>
+            </div>
+          </div>
+          <div class="input-group input-with-clear">
+            <input type="number" id="edit-amount" placeholder="金額">
+            <button class="btn-clear" onclick="clearInput('edit-amount')">✕</button>
+          </div>
+          <div class="input-group input-with-clear">
+            <input type="text" id="edit-memo" placeholder="内容">
+            <button class="btn-clear" onclick="clearInput('edit-memo')">✕</button>
+          </div>
+          <button class="btn-submit" onclick="saveEditRecord()">編集完了</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 年月選択ドラムロールモーダル -->
+    <div id="date-picker-modal" class="modal-overlay">
+      <div class="picker-modal-content">
+        <h3>年月を選択</h3>
+        <div class="picker-wheels">
+          <select id="picker-year"></select>
+          <select id="picker-month"></select>
+        </div>
+        <div class="picker-buttons">
+          <button onclick="closeDatePicker()">キャンセル</button>
+          <button class="primary" onclick="applyDatePicker()">確定</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ボトムナビゲーションバー -->
     <nav class="bottom-nav">
       <button class="nav-item active" onclick="switchTab('record', this)">
         <i class="fa-solid fa-pen-to-square"></i>
@@ -93,6 +196,10 @@
       <button class="nav-item" onclick="switchTab('all', this)">
         <i class="fa-solid fa-book"></i>
         <span>全期間</span>
+      </button>
+      <button class="nav-item" onclick="switchTab('fixed', this)">
+        <i class="fa-solid fa-file-invoice-dollar"></i>
+        <span>固定費</span>
       </button>
       <button class="nav-item" onclick="switchTab('settings', this)">
         <i class="fa-solid fa-gear"></i>
