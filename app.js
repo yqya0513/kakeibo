@@ -96,6 +96,7 @@ function renderRecordSummary() {
   let expense = 0;
 
   records.forEach(r => {
+    if (!r || !r.date || isNaN(r.amount)) return;
     const d = new Date(r.date);
     if (d.getFullYear() === year && d.getMonth() === month) {
       if (r.type === 'income') income += r.amount;
@@ -103,7 +104,7 @@ function renderRecordSummary() {
     }
   });
 
-  let fixedTotal = fixedCosts.reduce((sum, f) => sum + f.monthlyAmount, 0);
+  let fixedTotal = fixedCosts.reduce((sum, f) => sum + (Number(f.monthlyAmount) || 0), 0);
   let balance = income - expense - fixedTotal;
 
   const balEl = document.getElementById('record-month-balance');
@@ -133,6 +134,7 @@ function renderMonthlyPage() {
   document.getElementById('monthly-summary-label').textContent = `${year}年${month + 1}月`;
 
   let monthlyRecords = records.filter(r => {
+    if (!r || !r.date) return false;
     const d = new Date(r.date);
     return d.getFullYear() === year && d.getMonth() === month;
   });
@@ -140,11 +142,12 @@ function renderMonthlyPage() {
   let income = 0;
   let expense = 0;
   monthlyRecords.forEach(r => {
-    if (r.type === 'income') income += r.amount;
-    else expense += r.amount;
+    const amt = Number(r.amount) || 0;
+    if (r.type === 'income') income += amt;
+    else expense += amt;
   });
 
-  let fixedTotal = fixedCosts.reduce((sum, f) => sum + f.monthlyAmount, 0);
+  let fixedTotal = fixedCosts.reduce((sum, f) => sum + (Number(f.monthlyAmount) || 0), 0);
   let total = 0;
 
   if (monthlyFilter === 'income') total = income;
@@ -178,24 +181,33 @@ function setAllFilter(filter) {
 function renderAllPage() {
   let income = 0;
   let expense = 0;
-  records.forEach(r => {
-    if (r.type === 'income') income += r.amount;
-    else expense += r.amount;
+
+  const validRecords = records.filter(r => r && r.date && !isNaN(r.amount));
+
+  validRecords.forEach(r => {
+    const amt = Number(r.amount) || 0;
+    if (r.type === 'income') income += amt;
+    else expense += amt;
   });
 
   // 月額固定費の合計
-  const fixedTotalPerMonth = fixedCosts.reduce((sum, f) => sum + f.monthlyAmount, 0);
+  const fixedTotalPerMonth = fixedCosts.reduce((sum, f) => sum + (Number(f.monthlyAmount) || 0), 0);
 
-  // 記録が存在する期間（開始月から今月まで）の月数を計算
+  // 記録が存在する期間（開始月から今月まで）の月数を安全に計算
   let totalMonths = 1;
-  if (records.length > 0) {
-    const dates = records.map(r => new Date(r.date)).sort((a, b) => a - b);
-    const firstDate = dates[0];
-    const now = new Date();
-    
-    // (年差 * 12) + 月差 + 1ヶ月
-    totalMonths = (now.getFullYear() - firstDate.getFullYear()) * 12 + (now.getMonth() - firstDate.getMonth()) + 1;
-    if (totalMonths < 1) totalMonths = 1;
+  if (validRecords.length > 0) {
+    const timestamps = validRecords
+      .map(r => new Date(r.date).getTime())
+      .filter(t => !isNaN(t));
+
+    if (timestamps.length > 0) {
+      const minTimestamp = Math.min(...timestamps);
+      const firstDate = new Date(minTimestamp);
+      const now = new Date();
+      
+      totalMonths = (now.getFullYear() - firstDate.getFullYear()) * 12 + (now.getMonth() - firstDate.getMonth()) + 1;
+      if (isNaN(totalMonths) || totalMonths < 1) totalMonths = 1;
+    }
   }
 
   // 累計固定費
@@ -214,7 +226,7 @@ function renderAllPage() {
   totalEl.textContent = `合計 ${total >= 0 ? '+' : ''}${total.toLocaleString()}`;
   totalEl.className = 'amount ' + (total >= 0 ? 'positive' : 'negative');
 
-  let filtered = records.filter(r => {
+  let filtered = validRecords.filter(r => {
     if (allFilter === 'both') return true;
     return r.type === allFilter;
   });
@@ -229,6 +241,7 @@ function renderGroupedList(recordList, containerId) {
 
   const groups = {};
   recordList.forEach(r => {
+    if (!r.date) return;
     if (!groups[r.date]) groups[r.date] = [];
     groups[r.date].push(r);
   });
@@ -242,12 +255,13 @@ function renderGroupedList(recordList, containerId) {
     let dayIncome = 0;
     let dayExpense = 0;
     groups[date].forEach(r => {
-      if (r.type === 'income') dayIncome += r.amount;
-      else dayExpense += r.amount;
+      const amt = Number(r.amount) || 0;
+      if (r.type === 'income') dayIncome += amt;
+      else dayExpense += amt;
     });
 
     const dObj = new Date(date);
-    const dateStr = `${dObj.getMonth() + 1}/${dObj.getDate()}`;
+    const dateStr = !isNaN(dObj.getTime()) ? `${dObj.getMonth() + 1}/${dObj.getDate()}` : date;
     const diff = dayIncome - dayExpense;
     const diffStr = (diff >= 0 ? '+' : '') + diff.toLocaleString();
 
@@ -264,11 +278,12 @@ function renderGroupedList(recordList, containerId) {
       itemEl.onclick = () => openEditModal(r.id);
 
       const isInc = r.type === 'income';
+      const amt = Number(r.amount) || 0;
       itemEl.innerHTML = `
-        <span>${r.memo}</span>
+        <span>${r.memo || ''}</span>
         <div class="item-right">
           <span class="amount ${isInc ? 'positive' : 'negative'}">
-            ${isInc ? '+' : '-'}${r.amount.toLocaleString()}
+            ${isInc ? '+' : '-'}${amt.toLocaleString()}
           </span>
           <i class="fa-solid fa-chevron-right arrow"></i>
         </div>
@@ -321,7 +336,7 @@ function saveEditRecord() {
 
   const date = document.getElementById('edit-date').value;
   const amount = parseFloat(document.getElementById('edit-amount').value);
-  const memo = document.getElementById('edit-memo').value.trim();
+  const memo = document.getElementById('entry-memo') ? document.getElementById('edit-memo').value.trim() : '';
 
   if (!date || isNaN(amount) || amount <= 0) {
     alert('日付と正しい金額を入力してください。');
@@ -392,7 +407,7 @@ function addFixedCost() {
 }
 
 function renderFixedPage() {
-  const total = fixedCosts.reduce((sum, f) => sum + f.monthlyAmount, 0);
+  const total = fixedCosts.reduce((sum, f) => sum + (Number(f.monthlyAmount) || 0), 0);
   document.getElementById('fixed-total-val').textContent = `-${total.toLocaleString()}`;
 
   const listEl = document.getElementById('fixed-cost-list');
@@ -403,13 +418,15 @@ function renderFixedPage() {
     item.className = 'fixed-item';
     item.onclick = () => openFixedEditModal(f.id);
 
+    const mAmount = Number(f.monthlyAmount) || 0;
+
     item.innerHTML = `
       <div class="fixed-item-left">
         <span class="fixed-item-name">${f.name}</span>
-        <span class="fixed-item-sub">年額: ${(f.monthlyAmount * 12).toLocaleString()}</span>
+        <span class="fixed-item-sub">年額: ${(mAmount * 12).toLocaleString()}</span>
       </div>
       <div class="fixed-item-right">
-        <span class="amount negative">-${f.monthlyAmount.toLocaleString()}</span>
+        <span class="amount negative">-${mAmount.toLocaleString()}</span>
         <i class="fa-solid fa-chevron-right arrow"></i>
       </div>
     `;
