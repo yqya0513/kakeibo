@@ -10,8 +10,11 @@ let currentType = 'expense';
 let currentMonth = new Date();
 let monthlyFilter = 'both';
 let allFilter = 'both';
+
 let editingRecordId = null;
 let editType = 'expense';
+
+let editingFixedCostId = null;
 
 // 初期化
 document.addEventListener('DOMContentLoaded', () => {
@@ -27,7 +30,6 @@ function renderAll() {
   renderFixedCosts();
 }
 
-// データ保存
 function saveRecords() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
 }
@@ -65,7 +67,6 @@ function setTodayDate() {
   document.getElementById('entry-date').value = d.toISOString().split('T')[0];
 }
 
-// 「前日」「翌日」ボタン（選択中日付を基準に加減算）
 function changeInputDate(offsetDays) {
   const dateInput = document.getElementById('entry-date');
   let currentVal = dateInput.value;
@@ -79,7 +80,6 @@ function addRecord() {
   const amountVal = parseFloat(document.getElementById('entry-amount').value);
   const memo = document.getElementById('entry-memo').value.trim();
 
-  // 異常値チェック（異常時はアラート表示）
   if (!date || isNaN(amountVal) || amountVal <= 0 || !memo) {
     alert('日付、金額、内容を正しく入力してください。');
     return;
@@ -96,14 +96,12 @@ function addRecord() {
   records.push(record);
   saveRecords();
 
-  // 正常時はアラートを出さずにフォームリセット
   document.getElementById('entry-amount').value = '';
   document.getElementById('entry-memo').value = '';
 
   renderAll();
 }
 
-// 今月の残高表示（固定費差し引き後）
 function renderRecordSummary() {
   const now = new Date();
   const yearMonthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -154,7 +152,6 @@ function renderMonthly() {
     total += (r.type === 'expense') ? -r.amount : r.amount;
   });
 
-  // 固定費の差し引き
   const fixedTotal = getFixedCostMonthlyTotal();
   const finalTotal = total - fixedTotal;
 
@@ -165,7 +162,6 @@ function renderMonthly() {
   const fixedEl = document.getElementById('monthly-fixed-cost-val');
   fixedEl.innerText = `-${fixedTotal.toLocaleString()}`;
 
-  // 日別リスト生成
   const listEl = document.getElementById('monthly-list');
   listEl.innerHTML = '';
 
@@ -200,7 +196,6 @@ function renderMonthly() {
   });
 }
 
-// --- 年月ドラムロール風選択モーダル ---
 function openDatePicker() {
   const modal = document.getElementById('date-picker-modal');
   const yearSelect = document.getElementById('picker-year');
@@ -307,11 +302,24 @@ function renderAllPeriod() {
 }
 
 // --------------------------------------------------
-// 4. 固定費機能
+// 4. 固定費機能（入力・編集）
 // --------------------------------------------------
 function calcFixedAmount(source) {
   const mInput = document.getElementById('fixed-monthly-input');
   const yInput = document.getElementById('fixed-yearly-input');
+
+  if (source === 'monthly') {
+    const mVal = parseFloat(mInput.value);
+    yInput.value = isNaN(mVal) ? '' : Math.round(mVal * 12);
+  } else {
+    const yVal = parseFloat(yInput.value);
+    mInput.value = isNaN(yVal) ? '' : Math.round(yVal / 12);
+  }
+}
+
+function calcEditFixedAmount(source) {
+  const mInput = document.getElementById('edit-fixed-monthly');
+  const yInput = document.getElementById('edit-fixed-yearly');
 
   if (source === 'monthly') {
     const mVal = parseFloat(mInput.value);
@@ -340,7 +348,6 @@ function addFixedCost() {
   fixedCosts.push(item);
   saveFixedCosts();
 
-  // フォームクリア
   document.getElementById('fixed-name').value = '';
   document.getElementById('fixed-monthly-input').value = '';
   document.getElementById('fixed-yearly-input').value = '';
@@ -348,10 +355,50 @@ function addFixedCost() {
   renderAll();
 }
 
-function deleteFixedCost(id) {
-  if (confirm('この固定費を削除しますか？')) {
-    fixedCosts = fixedCosts.filter(f => f.id !== id);
+function openFixedEditModal(id) {
+  const item = fixedCosts.find(f => f.id === id);
+  if (!item) return;
+
+  editingFixedCostId = id;
+  document.getElementById('edit-fixed-name').value = item.name;
+  document.getElementById('edit-fixed-monthly').value = item.monthly;
+  document.getElementById('edit-fixed-yearly').value = Math.round(item.monthly * 12);
+
+  document.getElementById('fixed-edit-modal').style.display = 'flex';
+}
+
+function closeFixedEditModal() {
+  document.getElementById('fixed-edit-modal').style.display = 'none';
+  editingFixedCostId = null;
+}
+
+function saveEditFixedCost() {
+  const name = document.getElementById('edit-fixed-name').value.trim();
+  const monthlyVal = parseFloat(document.getElementById('edit-fixed-monthly').value);
+
+  if (!name || isNaN(monthlyVal) || monthlyVal <= 0) {
+    alert('内容と月額（または年額）を正しく入力してください。');
+    return;
+  }
+
+  const idx = fixedCosts.findIndex(f => f.id === editingFixedCostId);
+  if (idx !== -1) {
+    fixedCosts[idx] = {
+      id: editingFixedCostId,
+      name: name,
+      monthly: monthlyVal
+    };
     saveFixedCosts();
+    closeFixedEditModal();
+    renderAll();
+  }
+}
+
+function deleteCurrentFixedCost() {
+  if (confirm('この固定費を削除しますか？')) {
+    fixedCosts = fixedCosts.filter(f => f.id !== editingFixedCostId);
+    saveFixedCosts();
+    closeFixedEditModal();
     renderAll();
   }
 }
@@ -370,14 +417,14 @@ function renderFixedCosts() {
   fixedCosts.forEach(item => {
     const yearly = item.monthly * 12;
     const html = `
-      <div class="fixed-item">
+      <div class="fixed-item" onclick="openFixedEditModal(${item.id})">
         <div class="fixed-item-left">
           <span class="fixed-item-name">${escapeHtml(item.name)}</span>
           <span class="fixed-item-sub">年額: -${yearly.toLocaleString()}円</span>
         </div>
         <div class="fixed-item-right">
           <span class="amount negative">-${item.monthly.toLocaleString()}円</span>
-          <button class="btn-icon-delete" onclick="deleteFixedCost(${item.id})"><i class="fa-solid fa-trash-can"></i></button>
+          <span class="arrow"><i class="fa-solid fa-chevron-right"></i></span>
         </div>
       </div>
     `;
@@ -386,7 +433,7 @@ function renderFixedCosts() {
 }
 
 // --------------------------------------------------
-// 5. 編集モーダル機能
+// 5. 記録 編集モーダル機能
 // --------------------------------------------------
 function openEditModal(id) {
   const r = records.find(item => item.id === id);
@@ -479,6 +526,11 @@ function deleteCurrentRecord() {
 // 6. 全般・設定機能
 // --------------------------------------------------
 function switchTab(tabName, element) {
+  // モーダルが開いていればすべて閉じる
+  closeEditModal();
+  closeFixedEditModal();
+  closeDatePicker();
+
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
 
@@ -521,15 +573,4 @@ function exportData() {
   a.href = URL.createObjectURL(blob);
   a.download = `kakeibo_backup_${new Date().toISOString().split('T')[0]}.json`;
   a.click();
-}
-
-function clearAllData() {
-  if (confirm('すべての記録と固定費データを削除してもよろしいですか？')) {
-    records = [];
-    fixedCosts = [];
-    saveRecords();
-    saveFixedCosts();
-    renderAll();
-    alert('削除が完了しました');
-  }
 }
