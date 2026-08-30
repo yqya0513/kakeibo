@@ -190,10 +190,8 @@ function renderAllPage() {
     else expense += amt;
   });
 
-  // 月額固定費の合計
   const fixedTotalPerMonth = fixedCosts.reduce((sum, f) => sum + (Number(f.monthlyAmount) || 0), 0);
 
-  // 記録が存在する期間（開始月から今月まで）の月数を安全に計算
   let totalMonths = 1;
   if (validRecords.length > 0) {
     const timestamps = validRecords
@@ -210,7 +208,6 @@ function renderAllPage() {
     }
   }
 
-  // 累計固定費
   const totalFixedCosts = fixedTotalPerMonth * totalMonths;
 
   let total = 0;
@@ -231,10 +228,10 @@ function renderAllPage() {
     return r.type === allFilter;
   });
 
-  renderGroupedList(filtered, 'all-period-list');
+  renderMonthlySummaryOnlyList(filtered, 'all-period-list');
 }
 
-// --- リスト描画（共通） ---
+// --- リスト描画（月間画面用：日別グループ） ---
 function renderGroupedList(recordList, containerId) {
   const container = document.getElementById(containerId);
   container.innerHTML = '';
@@ -295,6 +292,72 @@ function renderGroupedList(recordList, containerId) {
   });
 }
 
+// --- リスト描画（全期間画面用：毎日の明細を非表示にし、月毎の合計のみ一覧表示） ---
+function renderMonthlySummaryOnlyList(recordList, containerId) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+
+  const fixedTotalPerMonth = fixedCosts.reduce((sum, f) => sum + (Number(f.monthlyAmount) || 0), 0);
+  const monthGroups = {};
+
+  recordList.forEach(r => {
+    if (!r.date) return;
+    const monthKey = r.date.substring(0, 7); // YYYY-MM
+    if (!monthGroups[monthKey]) monthGroups[monthKey] = [];
+    monthGroups[monthKey].push(r);
+  });
+
+  const sortedMonths = Object.keys(monthGroups).sort((a, b) => b.localeCompare(a));
+
+  sortedMonths.forEach(monthKey => {
+    let monthIncome = 0;
+    let monthExpense = 0;
+
+    monthGroups[monthKey].forEach(r => {
+      const amt = Number(r.amount) || 0;
+      if (r.type === 'income') monthIncome += amt;
+      else monthExpense += amt;
+    });
+
+    let monthNetTotal = 0;
+    if (allFilter === 'income') {
+      monthNetTotal = monthIncome;
+    } else if (allFilter === 'expense') {
+      monthNetTotal = -(monthExpense + fixedTotalPerMonth);
+    } else {
+      monthNetTotal = monthIncome - monthExpense - fixedTotalPerMonth;
+    }
+
+    const [y, m] = monthKey.split('-');
+    const monthLabel = `${y}年${parseInt(m, 10)}月`;
+
+    const itemEl = document.createElement('div');
+    itemEl.className = 'record-item';
+    itemEl.style.padding = '14px 12px';
+    itemEl.style.marginBottom = '8px';
+    itemEl.style.background = 'var(--card-bg, #ffffff)';
+    itemEl.style.borderRadius = '8px';
+
+    itemEl.onclick = () => {
+      currentMonthlyDate = new Date(parseInt(y, 10), parseInt(m, 10) - 1, 1);
+      switchTab('monthly', document.querySelectorAll('.nav-item')[1]);
+      renderMonthlyPage();
+    };
+
+    itemEl.innerHTML = `
+      <span style="font-weight: bold; font-size: 15px;">${monthLabel}</span>
+      <div class="item-right">
+        <span class="amount ${monthNetTotal >= 0 ? 'positive' : 'negative'}" style="font-size: 15px;">
+          ${monthNetTotal >= 0 ? '+' : ''}${monthNetTotal.toLocaleString()}
+        </span>
+        <i class="fa-solid fa-chevron-right arrow"></i>
+      </div>
+    `;
+
+    container.appendChild(itemEl);
+  });
+}
+
 // --- 記録 編集モーダル ---
 function openEditModal(id) {
   const r = records.find(item => item.id === id);
@@ -336,7 +399,7 @@ function saveEditRecord() {
 
   const date = document.getElementById('edit-date').value;
   const amount = parseFloat(document.getElementById('edit-amount').value);
-  const memo = document.getElementById('entry-memo') ? document.getElementById('edit-memo').value.trim() : '';
+  const memo = document.getElementById('edit-memo') ? document.getElementById('edit-memo').value.trim() : '';
 
   if (!date || isNaN(amount) || amount <= 0) {
     alert('日付と正しい金額を入力してください。');
@@ -540,8 +603,8 @@ function applyDatePicker() {
   closeDatePicker();
 }
 
-// --- データのエクスポート & インポート ---
-function exportData() {
+// --- データのエクスポート & インポート（スマホ対応版） ---
+async function exportData() {
   const recordsData = JSON.parse(localStorage.getItem('kakeibo_records') || '[]');
   const fixedData = JSON.parse(localStorage.getItem('kakeibo_fixed_costs') || '[]');
 
@@ -551,13 +614,47 @@ function exportData() {
     exportedAt: new Date().toISOString()
   };
 
-  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportObj, null, 2));
-  const downloadAnchor = document.createElement('a');
-  downloadAnchor.setAttribute("href", dataStr);
-  downloadAnchor.setAttribute("download", `kakeibo_backup_${new Date().toISOString().slice(0, 10)}.json`);
-  document.body.appendChild(downloadAnchor);
-  downloadAnchor.click();
-  downloadAnchor.remove();
+  const jsonString = JSON.stringify(exportObj, null, 2);
+  const fileName = `kakeibo_backup_${new Date().toISOString().slice(0, 10)}.json`;
+
+  // スマホの共有機能を優先的に使用
+  if (navigator.canShare && navigator.canShare({ files: [new File([], '')] })) {
+    try {
+      const file = new File([jsonString], fileName, { type: 'application/json' });
+      await navigator.share({
+        files: [file],
+        title: '家計簿バックアップデータ',
+        text: '家計簿アプリのバックアップデータです。'
+      });
+      return;
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        console.warn('ファイル共有が不可能なため、ブラウザダウンロードを試行します', err);
+      } else {
+        return;
+      }
+    }
+  }
+
+  // フォールバック：ブラウザダウンロード
+  try {
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.href = url;
+    downloadAnchor.download = fileName;
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    // ファイル生成もブロックされるスマホブラウザの場合、クリップボードにコピー
+    navigator.clipboard.writeText(jsonString).then(() => {
+      alert('バックアップテキストをクリップボードにコピーしました。メモ帳等に貼り付けて保存してください。');
+    }).catch(() => {
+      alert('エクスポートに失敗しました。');
+    });
+  }
 }
 
 function importData(event) {
