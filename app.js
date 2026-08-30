@@ -183,10 +183,32 @@ function renderAllPage() {
     else expense += r.amount;
   });
 
+  // 月額固定費の合計
+  const fixedTotalPerMonth = fixedCosts.reduce((sum, f) => sum + f.monthlyAmount, 0);
+
+  // 記録が存在する期間（開始月から今月まで）の月数を計算
+  let totalMonths = 1;
+  if (records.length > 0) {
+    const dates = records.map(r => new Date(r.date)).sort((a, b) => a - b);
+    const firstDate = dates[0];
+    const now = new Date();
+    
+    // (年差 * 12) + 月差 + 1ヶ月
+    totalMonths = (now.getFullYear() - firstDate.getFullYear()) * 12 + (now.getMonth() - firstDate.getMonth()) + 1;
+    if (totalMonths < 1) totalMonths = 1;
+  }
+
+  // 累計固定費
+  const totalFixedCosts = fixedTotalPerMonth * totalMonths;
+
   let total = 0;
-  if (allFilter === 'income') total = income;
-  else if (allFilter === 'expense') total = -expense;
-  else total = income - expense;
+  if (allFilter === 'income') {
+    total = income;
+  } else if (allFilter === 'expense') {
+    total = -(expense + totalFixedCosts);
+  } else {
+    total = income - expense - totalFixedCosts;
+  }
 
   const totalEl = document.getElementById('all-total-amount');
   totalEl.textContent = `合計 ${total >= 0 ? '+' : ''}${total.toLocaleString()}`;
