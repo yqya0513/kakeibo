@@ -1,131 +1,120 @@
-// ローカルストレージキー
-const STORAGE_KEY = 'kakeibo_records';
-const FIXED_STORAGE_KEY = 'kakeibo_fixed_costs';
+// --- グローバル状態 ---
+let records = JSON.parse(localStorage.getItem('kakeibo_records')) || [];
+let fixedCosts = JSON.parse(localStorage.getItem('kakeibo_fixed_costs')) || [];
 
-// 状態管理
-let records = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
-let fixedCosts = JSON.parse(localStorage.getItem(FIXED_STORAGE_KEY)) || [];
+let currentInputType = 'expense';
+let currentEditType = 'expense';
+let editingRecordId = null;
+let editingFixedId = null;
 
-let currentType = 'expense';
-let currentMonth = new Date();
+let currentMonthlyDate = new Date();
 let monthlyFilter = 'both';
 let allFilter = 'both';
 
-let editingRecordId = null;
-let editType = 'expense';
-
-let editingFixedCostId = null;
-
-// 初期化
+// --- 初期化 ---
 document.addEventListener('DOMContentLoaded', () => {
   setTodayDate();
-  updateTypeUI();
   renderAll();
 });
 
 function renderAll() {
   renderRecordSummary();
-  renderMonthly();
-  renderAllPeriod();
-  renderFixedCosts();
+  renderMonthlyPage();
+  renderAllPage();
+  renderFixedPage();
 }
 
 function saveRecords() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  localStorage.setItem('kakeibo_records', JSON.stringify(records));
+  renderAll();
 }
 
 function saveFixedCosts() {
-  localStorage.setItem(FIXED_STORAGE_KEY, JSON.stringify(fixedCosts));
+  localStorage.setItem('kakeibo_fixed_costs', JSON.stringify(fixedCosts));
+  renderAll();
 }
 
-// --------------------------------------------------
-// 1. 記録（入力）機能
-// --------------------------------------------------
+// --- タブ切り替え ---
+function switchTab(tabName, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  
+  document.getElementById(`page-${tabName}`).classList.add('active');
+  el.classList.add('active');
+}
+
+// --- 入力画面（記録） ---
 function setType(type) {
-  currentType = type;
-  updateTypeUI();
-}
-
-function updateTypeUI() {
-  const incBtn = document.getElementById('type-income');
-  const expBtn = document.getElementById('type-expense');
-  const amountInput = document.getElementById('entry-amount');
-
-  if (currentType === 'income') {
-    incBtn.classList.add('active');
-    expBtn.classList.remove('active');
-    amountInput.placeholder = '収入額';
-  } else {
-    expBtn.classList.add('active');
-    incBtn.classList.remove('active');
-    amountInput.placeholder = '支出額';
-  }
+  currentInputType = type;
+  document.getElementById('type-income').classList.toggle('active', type === 'income');
+  document.getElementById('type-expense').classList.toggle('active', type === 'expense');
+  document.getElementById('entry-amount').placeholder = type === 'income' ? '収入額' : '支出額';
 }
 
 function setTodayDate() {
-  const d = new Date();
-  document.getElementById('entry-date').value = d.toISOString().split('T')[0];
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('entry-date').value = today;
 }
 
-function changeInputDate(offsetDays) {
-  const dateInput = document.getElementById('entry-date');
-  let currentVal = dateInput.value;
-  let d = currentVal ? new Date(currentVal) : new Date();
-  d.setDate(d.getDate() + offsetDays);
-  dateInput.value = d.toISOString().split('T')[0];
+function changeInputDate(offset) {
+  const input = document.getElementById('entry-date');
+  const dateVal = input.value ? new Date(input.value) : new Date();
+  dateVal.setDate(dateVal.getDate() + offset);
+  input.value = dateVal.toISOString().split('T')[0];
 }
 
 function addRecord() {
   const date = document.getElementById('entry-date').value;
-  const amountVal = parseFloat(document.getElementById('entry-amount').value);
+  const amount = parseFloat(document.getElementById('entry-amount').value);
   const memo = document.getElementById('entry-memo').value.trim();
 
-  if (!date || isNaN(amountVal) || amountVal <= 0 || !memo) {
-    alert('日付、金額、内容を正しく入力してください。');
+  if (!date || isNaN(amount) || amount <= 0) {
+    alert('日付と正しい金額を入力してください。');
     return;
   }
 
-  const record = {
-    id: Date.now(),
+  records.push({
+    id: Date.now().toString(),
     date: date,
-    type: currentType,
-    amount: amountVal,
-    memo: memo
-  };
+    type: currentInputType,
+    amount: amount,
+    memo: memo || (currentInputType === 'income' ? '収入' : '支出')
+  });
 
-  records.push(record);
   saveRecords();
-
   document.getElementById('entry-amount').value = '';
   document.getElementById('entry-memo').value = '';
-
-  renderAll();
+  alert('記録を追加しました');
 }
 
 function renderRecordSummary() {
   const now = new Date();
-  const yearMonthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const year = now.getFullYear();
+  const month = now.getMonth();
 
-  const monthRecords = records.filter(r => r.date.startsWith(yearMonthPrefix));
-  let total = 0;
-  monthRecords.forEach(r => {
-    total += (r.type === 'expense') ? -r.amount : r.amount;
+  let income = 0;
+  let expense = 0;
+
+  records.forEach(r => {
+    const d = new Date(r.date);
+    if (d.getFullYear() === year && d.getMonth() === month) {
+      if (r.type === 'income') income += r.amount;
+      else expense += r.amount;
+    }
   });
 
-  const fixedTotal = getFixedCostMonthlyTotal();
-  const finalBalance = total - fixedTotal;
+  let fixedTotal = fixedCosts.reduce((sum, f) => sum + f.monthlyAmount, 0);
+  let balance = income - expense - fixedTotal;
 
-  const balanceEl = document.getElementById('record-month-balance');
-  balanceEl.innerText = formatAmount(finalBalance);
-  balanceEl.className = `info-val ${finalBalance < 0 ? 'negative' : 'positive'}`;
+  const balEl = document.getElementById('record-month-balance');
+  balEl.textContent = (balance >= 0 ? '+' : '') + balance.toLocaleString();
+  balEl.className = 'info-val ' + (balance >= 0 ? 'positive' : 'negative');
 }
 
-// --------------------------------------------------
-// 2. 月間機能
-// --------------------------------------------------
+// --- 月間画面 ---
 function changeMonth(offset) {
-  currentMonth.setMonth(currentMonth.getMonth() + offset);
-  renderMonthly();
+  currentMonthlyDate.setMonth(currentMonthlyDate.getMonth() + offset);
+  renderMonthlyPage();
 }
 
 function setMonthlyFilter(filter) {
@@ -133,316 +122,149 @@ function setMonthlyFilter(filter) {
   ['income', 'both', 'expense'].forEach(f => {
     document.getElementById(`m-filter-${f}`).classList.toggle('active', f === filter);
   });
-  renderMonthly();
+  renderMonthlyPage();
 }
 
-function renderMonthly() {
-  const year = currentMonth.getFullYear();
-  const month = currentMonth.getMonth() + 1;
-  const yearMonthStr = `${year}年${month}月`;
-  const prefix = `${year}-${String(month).padStart(2, '0')}`;
+function renderMonthlyPage() {
+  const year = currentMonthlyDate.getFullYear();
+  const month = currentMonthlyDate.getMonth();
 
-  document.getElementById('monthly-title').innerText = yearMonthStr;
-  document.getElementById('monthly-summary-label').innerText = yearMonthStr;
+  document.getElementById('monthly-title').textContent = `${year}年${month + 1}月`;
+  document.getElementById('monthly-summary-label').textContent = `${year}年${month + 1}月`;
 
-  const monthRecords = records.filter(r => r.date.startsWith(prefix) && filterCheck(r.type, monthlyFilter));
-
-  let total = 0;
-  monthRecords.forEach(r => {
-    total += (r.type === 'expense') ? -r.amount : r.amount;
+  let monthlyRecords = records.filter(r => {
+    const d = new Date(r.date);
+    return d.getFullYear() === year && d.getMonth() === month;
   });
 
-  const fixedTotal = getFixedCostMonthlyTotal();
-  const finalTotal = total - fixedTotal;
+  let income = 0;
+  let expense = 0;
+  monthlyRecords.forEach(r => {
+    if (r.type === 'income') income += r.amount;
+    else expense += r.amount;
+  });
+
+  let fixedTotal = fixedCosts.reduce((sum, f) => sum + f.monthlyAmount, 0);
+  let total = 0;
+
+  if (monthlyFilter === 'income') total = income;
+  else if (monthlyFilter === 'expense') total = -(expense + fixedTotal);
+  else total = income - expense - fixedTotal;
 
   const totalEl = document.getElementById('monthly-total-amount');
-  totalEl.innerText = `合計 ${formatAmount(finalTotal)}`;
-  totalEl.className = `amount ${finalTotal < 0 ? 'negative' : 'positive'}`;
+  totalEl.textContent = `合計 ${total >= 0 ? '+' : ''}${total.toLocaleString()}`;
+  totalEl.className = 'amount ' + (total >= 0 ? 'positive' : 'negative');
 
   const fixedEl = document.getElementById('monthly-fixed-cost-val');
-  fixedEl.innerText = `-${fixedTotal.toLocaleString()}`;
+  fixedEl.textContent = `-${fixedTotal.toLocaleString()}`;
 
-  const listEl = document.getElementById('monthly-list');
-  listEl.innerHTML = '';
-
-  const grouped = groupByDate(monthRecords);
-  Object.keys(grouped).sort().reverse().forEach(date => {
-    const dayRecords = grouped[date];
-    const dayTotal = dayRecords.reduce((sum, r) => sum + (r.type === 'expense' ? -r.amount : r.amount), 0);
-
-    let html = `
-      <div class="date-group">
-        <div class="date-group-header">
-          <span>${formatJapaneseDate(date)}</span>
-          <span>合計 ${formatAmount(dayTotal)}</span>
-        </div>
-    `;
-
-    dayRecords.forEach(r => {
-      const displayAmt = r.type === 'expense' ? -r.amount : r.amount;
-      html += `
-        <div class="record-item" onclick="openEditModal(${r.id})">
-          <span>${escapeHtml(r.memo)}</span>
-          <div class="item-right">
-            <span class="amount ${displayAmt < 0 ? 'negative' : 'positive'}">${formatAmount(displayAmt)}</span>
-            <span class="arrow"><i class="fa-solid fa-chevron-right"></i></span>
-          </div>
-        </div>
-      `;
-    });
-
-    html += `</div>`;
-    listEl.insertAdjacentHTML('beforeend', html);
+  let filtered = monthlyRecords.filter(r => {
+    if (monthlyFilter === 'both') return true;
+    return r.type === monthlyFilter;
   });
+
+  renderGroupedList(filtered, 'monthly-list');
 }
 
-function openDatePicker() {
-  const modal = document.getElementById('date-picker-modal');
-  const yearSelect = document.getElementById('picker-year');
-  const monthSelect = document.getElementById('picker-month');
-
-  yearSelect.innerHTML = '';
-  monthSelect.innerHTML = '';
-
-  const currentY = currentMonth.getFullYear();
-  for (let y = currentY - 10; y <= currentY + 10; y++) {
-    const opt = document.createElement('option');
-    opt.value = y;
-    opt.innerText = `${y}年`;
-    if (y === currentY) opt.selected = true;
-    yearSelect.appendChild(opt);
-  }
-
-  const currentM = currentMonth.getMonth() + 1;
-  for (let m = 1; m <= 12; m++) {
-    const opt = document.createElement('option');
-    opt.value = m;
-    opt.innerText = `${m}月`;
-    if (m === currentM) opt.selected = true;
-    monthSelect.appendChild(opt);
-  }
-
-  modal.style.display = 'flex';
-}
-
-function closeDatePicker() {
-  document.getElementById('date-picker-modal').style.display = 'none';
-}
-
-function applyDatePicker() {
-  const y = parseInt(document.getElementById('picker-year').value, 10);
-  const m = parseInt(document.getElementById('picker-month').value, 10) - 1;
-  currentMonth = new Date(y, m, 1);
-  closeDatePicker();
-  renderMonthly();
-}
-
-// --------------------------------------------------
-// 3. 全期間機能
-// --------------------------------------------------
+// --- 全期間画面 ---
 function setAllFilter(filter) {
   allFilter = filter;
   ['income', 'both', 'expense'].forEach(f => {
     document.getElementById(`a-filter-${f}`).classList.toggle('active', f === filter);
   });
-  renderAllPeriod();
+  renderAllPage();
 }
 
-function renderAllPeriod() {
-  const filtered = records.filter(r => filterCheck(r.type, allFilter));
+function renderAllPage() {
+  let income = 0;
+  let expense = 0;
+  records.forEach(r => {
+    if (r.type === 'income') income += r.amount;
+    else expense += r.amount;
+  });
 
   let total = 0;
-  filtered.forEach(r => {
-    total += (r.type === 'expense') ? -r.amount : r.amount;
-  });
+  if (allFilter === 'income') total = income;
+  else if (allFilter === 'expense') total = -expense;
+  else total = income - expense;
 
   const totalEl = document.getElementById('all-total-amount');
-  totalEl.innerText = `合計 ${formatAmount(total)}`;
-  totalEl.className = `amount ${total < 0 ? 'negative' : 'positive'}`;
+  totalEl.textContent = `合計 ${total >= 0 ? '+' : ''}${total.toLocaleString()}`;
+  totalEl.className = 'amount ' + (total >= 0 ? 'positive' : 'negative');
 
-  const grouped = {};
-  filtered.forEach(r => {
-    const [y, m] = r.date.split('-');
-    if (!grouped[y]) grouped[y] = {};
-    if (!grouped[y][m]) grouped[y][m] = [];
-    grouped[y][m].push(r);
+  let filtered = records.filter(r => {
+    if (allFilter === 'both') return true;
+    return r.type === allFilter;
   });
 
-  const listEl = document.getElementById('all-period-list');
-  listEl.innerHTML = '';
+  renderGroupedList(filtered, 'all-period-list');
+}
 
-  Object.keys(grouped).sort().reverse().forEach(year => {
-    let yearTotal = 0;
-    let monthHtml = '';
+// --- リスト描画（共通） ---
+function renderGroupedList(recordList, containerId) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
 
-    Object.keys(grouped[year]).sort().reverse().forEach(month => {
-      const mRecords = grouped[year][month];
-      const mTotal = mRecords.reduce((sum, r) => sum + (r.type === 'expense' ? -r.amount : r.amount), 0);
-      yearTotal += mTotal;
+  const groups = {};
+  recordList.forEach(r => {
+    if (!groups[r.date]) groups[r.date] = [];
+    groups[r.date].push(r);
+  });
 
-      monthHtml += `
-        <div class="record-item">
-          <span>${parseInt(month, 10)}月</span>
-          <span class="amount ${mTotal < 0 ? 'negative' : 'positive'}">${formatAmount(mTotal)}</span>
-        </div>
-      `;
+  const sortedDates = Object.keys(groups).sort((a, b) => new Date(b) - new Date(a));
+
+  sortedDates.forEach(date => {
+    const groupEl = document.createElement('div');
+    groupEl.className = 'date-group';
+
+    let dayIncome = 0;
+    let dayExpense = 0;
+    groups[date].forEach(r => {
+      if (r.type === 'income') dayIncome += r.amount;
+      else dayExpense += r.amount;
     });
 
-    const yearBlock = `
-      <div class="date-group">
-        <div class="date-group-header">
-          <span>${year}年</span>
-          <span>合計 ${formatAmount(yearTotal)}</span>
-        </div>
-        ${monthHtml}
+    const dObj = new Date(date);
+    const dateStr = `${dObj.getMonth() + 1}/${dObj.getDate()}`;
+    const diff = dayIncome - dayExpense;
+    const diffStr = (diff >= 0 ? '+' : '') + diff.toLocaleString();
+
+    groupEl.innerHTML = `
+      <div class="date-group-header">
+        <span>${dateStr}</span>
+        <span>${diffStr}</span>
       </div>
     `;
-    listEl.insertAdjacentHTML('beforeend', yearBlock);
+
+    groups[date].forEach(r => {
+      const itemEl = document.createElement('div');
+      itemEl.className = 'record-item';
+      itemEl.onclick = () => openEditModal(r.id);
+
+      const isInc = r.type === 'income';
+      itemEl.innerHTML = `
+        <span>${r.memo}</span>
+        <div class="item-right">
+          <span class="amount ${isInc ? 'positive' : 'negative'}">
+            ${isInc ? '+' : '-'}${r.amount.toLocaleString()}
+          </span>
+          <i class="fa-solid fa-chevron-right arrow"></i>
+        </div>
+      `;
+      groupEl.appendChild(itemEl);
+    });
+
+    container.appendChild(groupEl);
   });
 }
 
-// --------------------------------------------------
-// 4. 固定費機能（入力・編集）
-// --------------------------------------------------
-function calcFixedAmount(source) {
-  const mInput = document.getElementById('fixed-monthly-input');
-  const yInput = document.getElementById('fixed-yearly-input');
-
-  if (source === 'monthly') {
-    const mVal = parseFloat(mInput.value);
-    yInput.value = isNaN(mVal) ? '' : Math.round(mVal * 12);
-  } else {
-    const yVal = parseFloat(yInput.value);
-    mInput.value = isNaN(yVal) ? '' : Math.round(yVal / 12);
-  }
-}
-
-function calcEditFixedAmount(source) {
-  const mInput = document.getElementById('edit-fixed-monthly');
-  const yInput = document.getElementById('edit-fixed-yearly');
-
-  if (source === 'monthly') {
-    const mVal = parseFloat(mInput.value);
-    yInput.value = isNaN(mVal) ? '' : Math.round(mVal * 12);
-  } else {
-    const yVal = parseFloat(yInput.value);
-    mInput.value = isNaN(yVal) ? '' : Math.round(yVal / 12);
-  }
-}
-
-function addFixedCost() {
-  const name = document.getElementById('fixed-name').value.trim();
-  const monthlyVal = parseFloat(document.getElementById('fixed-monthly-input').value);
-
-  if (!name || isNaN(monthlyVal) || monthlyVal <= 0) {
-    alert('内容と月額（または年額）を正しく入力してください。');
-    return;
-  }
-
-  const item = {
-    id: Date.now(),
-    name: name,
-    monthly: monthlyVal
-  };
-
-  fixedCosts.push(item);
-  saveFixedCosts();
-
-  document.getElementById('fixed-name').value = '';
-  document.getElementById('fixed-monthly-input').value = '';
-  document.getElementById('fixed-yearly-input').value = '';
-
-  renderAll();
-}
-
-function openFixedEditModal(id) {
-  const item = fixedCosts.find(f => f.id === id);
-  if (!item) return;
-
-  editingFixedCostId = id;
-  document.getElementById('edit-fixed-name').value = item.name;
-  document.getElementById('edit-fixed-monthly').value = item.monthly;
-  document.getElementById('edit-fixed-yearly').value = Math.round(item.monthly * 12);
-
-  document.getElementById('fixed-edit-modal').style.display = 'flex';
-}
-
-function closeFixedEditModal() {
-  document.getElementById('fixed-edit-modal').style.display = 'none';
-  editingFixedCostId = null;
-}
-
-function saveEditFixedCost() {
-  const name = document.getElementById('edit-fixed-name').value.trim();
-  const monthlyVal = parseFloat(document.getElementById('edit-fixed-monthly').value);
-
-  if (!name || isNaN(monthlyVal) || monthlyVal <= 0) {
-    alert('内容と月額（または年額）を正しく入力してください。');
-    return;
-  }
-
-  const idx = fixedCosts.findIndex(f => f.id === editingFixedCostId);
-  if (idx !== -1) {
-    fixedCosts[idx] = {
-      id: editingFixedCostId,
-      name: name,
-      monthly: monthlyVal
-    };
-    saveFixedCosts();
-    closeFixedEditModal();
-    renderAll();
-  }
-}
-
-function deleteCurrentFixedCost() {
-  if (confirm('この固定費を削除しますか？')) {
-    fixedCosts = fixedCosts.filter(f => f.id !== editingFixedCostId);
-    saveFixedCosts();
-    closeFixedEditModal();
-    renderAll();
-  }
-}
-
-function getFixedCostMonthlyTotal() {
-  return fixedCosts.reduce((sum, f) => sum + f.monthly, 0);
-}
-
-function renderFixedCosts() {
-  const total = getFixedCostMonthlyTotal();
-  document.getElementById('fixed-total-val').innerText = `-${total.toLocaleString()} 円`;
-
-  const listEl = document.getElementById('fixed-cost-list');
-  listEl.innerHTML = '';
-
-  fixedCosts.forEach(item => {
-    const yearly = item.monthly * 12;
-    const html = `
-      <div class="fixed-item" onclick="openFixedEditModal(${item.id})">
-        <div class="fixed-item-left">
-          <span class="fixed-item-name">${escapeHtml(item.name)}</span>
-          <span class="fixed-item-sub">年額: -${yearly.toLocaleString()}円</span>
-        </div>
-        <div class="fixed-item-right">
-          <span class="amount negative">-${item.monthly.toLocaleString()}円</span>
-          <span class="arrow"><i class="fa-solid fa-chevron-right"></i></span>
-        </div>
-      </div>
-    `;
-    listEl.insertAdjacentHTML('beforeend', html);
-  });
-}
-
-// --------------------------------------------------
-// 5. 記録 編集モーダル機能
-// --------------------------------------------------
+// --- 記録 編集モーダル ---
 function openEditModal(id) {
   const r = records.find(item => item.id === id);
   if (!r) return;
 
   editingRecordId = id;
-  editType = r.type;
-  updateEditTypeUI();
-
+  setEditType(r.type);
   document.getElementById('edit-date').value = r.date;
   document.getElementById('edit-amount').value = r.amount;
   document.getElementById('edit-memo').value = r.memo;
@@ -456,45 +278,31 @@ function closeEditModal() {
 }
 
 function setEditType(type) {
-  editType = type;
-  updateEditTypeUI();
+  currentEditType = type;
+  document.getElementById('edit-type-income').classList.toggle('active', type === 'income');
+  document.getElementById('edit-type-expense').classList.toggle('active', type === 'expense');
 }
 
-function updateEditTypeUI() {
-  const incBtn = document.getElementById('edit-type-income');
-  const expBtn = document.getElementById('edit-type-expense');
-  if (editType === 'income') {
-    incBtn.classList.add('active');
-    expBtn.classList.remove('active');
-  } else {
-    expBtn.classList.add('active');
-    incBtn.classList.remove('active');
-  }
-}
-
-function changeEditInputDate(offsetDays) {
-  const dateInput = document.getElementById('edit-date');
-  let currentVal = dateInput.value;
-  let d = currentVal ? new Date(currentVal) : new Date();
-  d.setDate(d.getDate() + offsetDays);
-  dateInput.value = d.toISOString().split('T')[0];
+function changeEditInputDate(offset) {
+  const input = document.getElementById('edit-date');
+  const dateVal = input.value ? new Date(input.value) : new Date();
+  dateVal.setDate(dateVal.getDate() + offset);
+  input.value = dateVal.toISOString().split('T')[0];
 }
 
 function setEditTodayDate() {
   document.getElementById('edit-date').value = new Date().toISOString().split('T')[0];
 }
 
-function clearInput(id) {
-  document.getElementById(id).value = '';
-}
-
 function saveEditRecord() {
+  if (!editingRecordId) return;
+
   const date = document.getElementById('edit-date').value;
-  const amountVal = parseFloat(document.getElementById('edit-amount').value);
+  const amount = parseFloat(document.getElementById('edit-amount').value);
   const memo = document.getElementById('edit-memo').value.trim();
 
-  if (!date || isNaN(amountVal) || amountVal <= 0 || !memo) {
-    alert('日付、金額、内容を正しく入力してください。');
+  if (!date || isNaN(amount) || amount <= 0) {
+    alert('日付と正しい金額を入力してください。');
     return;
   }
 
@@ -503,74 +311,239 @@ function saveEditRecord() {
     records[idx] = {
       id: editingRecordId,
       date: date,
-      type: editType,
-      amount: amountVal,
-      memo: memo
+      type: currentEditType,
+      amount: amount,
+      memo: memo || (currentEditType === 'income' ? '収入' : '支出')
     };
     saveRecords();
-    closeEditModal();
-    renderAll();
   }
+
+  closeEditModal();
 }
 
 function deleteCurrentRecord() {
+  if (!editingRecordId) return;
   if (confirm('この記録を削除しますか？')) {
     records = records.filter(r => r.id !== editingRecordId);
     saveRecords();
     closeEditModal();
-    renderAll();
   }
 }
 
-// --------------------------------------------------
-// 6. 全般・設定機能
-// --------------------------------------------------
-function switchTab(tabName, element) {
-  // モーダルが開いていればすべて閉じる
-  closeEditModal();
+function clearInput(id) {
+  document.getElementById(id).value = '';
+}
+
+// --- 固定費画面 ---
+function calcFixedAmount(mode) {
+  const mInput = document.getElementById('fixed-monthly-input');
+  const yInput = document.getElementById('fixed-yearly-input');
+
+  if (mode === 'monthly') {
+    const val = parseFloat(mInput.value);
+    yInput.value = isNaN(val) ? '' : Math.round(val * 12);
+  } else {
+    const val = parseFloat(yInput.value);
+    mInput.value = isNaN(val) ? '' : Math.round(val / 12);
+  }
+}
+
+function addFixedCost() {
+  const name = document.getElementById('fixed-name').value.trim();
+  const mAmount = parseFloat(document.getElementById('fixed-monthly-input').value);
+
+  if (!name || isNaN(mAmount) || mAmount <= 0) {
+    alert('内容と金額を入力してください。');
+    return;
+  }
+
+  fixedCosts.push({
+    id: Date.now().toString(),
+    name: name,
+    monthlyAmount: mAmount
+  });
+
+  saveFixedCosts();
+  document.getElementById('fixed-name').value = '';
+  document.getElementById('fixed-monthly-input').value = '';
+  document.getElementById('fixed-yearly-input').value = '';
+}
+
+function renderFixedPage() {
+  const total = fixedCosts.reduce((sum, f) => sum + f.monthlyAmount, 0);
+  document.getElementById('fixed-total-val').textContent = `-${total.toLocaleString()}`;
+
+  const listEl = document.getElementById('fixed-cost-list');
+  listEl.innerHTML = '';
+
+  fixedCosts.forEach(f => {
+    const item = document.createElement('div');
+    item.className = 'fixed-item';
+    item.onclick = () => openFixedEditModal(f.id);
+
+    item.innerHTML = `
+      <div class="fixed-item-left">
+        <span class="fixed-item-name">${f.name}</span>
+        <span class="fixed-item-sub">年額: ${(f.monthlyAmount * 12).toLocaleString()}</span>
+      </div>
+      <div class="fixed-item-right">
+        <span class="amount negative">-${f.monthlyAmount.toLocaleString()}</span>
+        <i class="fa-solid fa-chevron-right arrow"></i>
+      </div>
+    `;
+    listEl.appendChild(item);
+  });
+}
+
+function openFixedEditModal(id) {
+  const f = fixedCosts.find(item => item.id === id);
+  if (!f) return;
+
+  editingFixedId = id;
+  document.getElementById('edit-fixed-name').value = f.name;
+  document.getElementById('edit-fixed-monthly').value = f.monthlyAmount;
+  document.getElementById('edit-fixed-yearly').value = f.monthlyAmount * 12;
+
+  document.getElementById('fixed-edit-modal').style.display = 'flex';
+}
+
+function closeFixedEditModal() {
+  document.getElementById('fixed-edit-modal').style.display = 'none';
+  editingFixedId = null;
+}
+
+function calcEditFixedAmount(mode) {
+  const mInput = document.getElementById('edit-fixed-monthly');
+  const yInput = document.getElementById('edit-fixed-yearly');
+
+  if (mode === 'monthly') {
+    const val = parseFloat(mInput.value);
+    yInput.value = isNaN(val) ? '' : Math.round(val * 12);
+  } else {
+    const val = parseFloat(yInput.value);
+    mInput.value = isNaN(val) ? '' : Math.round(val / 12);
+  }
+}
+
+function saveEditFixedCost() {
+  if (!editingFixedId) return;
+
+  const name = document.getElementById('edit-fixed-name').value.trim();
+  const mAmount = parseFloat(document.getElementById('edit-fixed-monthly').value);
+
+  if (!name || isNaN(mAmount) || mAmount <= 0) {
+    alert('内容と金額を入力してください。');
+    return;
+  }
+
+  const idx = fixedCosts.findIndex(f => f.id === editingFixedId);
+  if (idx !== -1) {
+    fixedCosts[idx] = {
+      id: editingFixedId,
+      name: name,
+      monthlyAmount: mAmount
+    };
+    saveFixedCosts();
+  }
+
   closeFixedEditModal();
+}
+
+function deleteCurrentFixedCost() {
+  if (!editingFixedId) return;
+  if (confirm('この固定費を削除しますか？')) {
+    fixedCosts = fixedCosts.filter(f => f.id !== editingFixedId);
+    saveFixedCosts();
+    closeFixedEditModal();
+  }
+}
+
+// --- ドラムロール風 DatePicker ---
+function openDatePicker() {
+  const yearSelect = document.getElementById('picker-year');
+  const monthSelect = document.getElementById('picker-month');
+
+  yearSelect.innerHTML = '';
+  monthSelect.innerHTML = '';
+
+  const currentY = currentMonthlyDate.getFullYear();
+  const currentM = currentMonthlyDate.getMonth() + 1;
+
+  for (let y = currentY - 5; y <= currentY + 5; y++) {
+    const opt = document.createElement('option');
+    opt.value = y;
+    opt.textContent = `${y}年`;
+    if (y === currentY) opt.selected = true;
+    yearSelect.appendChild(opt);
+  }
+
+  for (let m = 1; m <= 12; m++) {
+    const opt = document.createElement('option');
+    opt.value = m;
+    opt.textContent = `${m}月`;
+    if (m === currentM) opt.selected = true;
+    monthSelect.appendChild(opt);
+  }
+
+  document.getElementById('date-picker-modal').style.display = 'flex';
+}
+
+function closeDatePicker() {
+  document.getElementById('date-picker-modal').style.display = 'none';
+}
+
+function applyDatePicker() {
+  const y = parseInt(document.getElementById('picker-year').value);
+  const m = parseInt(document.getElementById('picker-month').value) - 1;
+
+  currentMonthlyDate = new Date(y, m, 1);
+  renderMonthlyPage();
   closeDatePicker();
-
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-
-  document.getElementById(`page-${tabName}`).classList.add('active');
-  element.classList.add('active');
-
-  renderAll();
 }
 
-function filterCheck(type, filter) {
-  if (filter === 'both') return true;
-  return type === filter;
-}
-
-function groupByDate(recordsArr) {
-  return recordsArr.reduce((acc, r) => {
-    (acc[r.date] = acc[r.date] || []).push(r);
-    return acc;
-  }, {});
-}
-
-function formatAmount(num) {
-  const sign = num < 0 ? '-' : '';
-  return `${sign}${Math.abs(num).toLocaleString()}`;
-}
-
-function formatJapaneseDate(dateStr) {
-  const [y, m, d] = dateStr.split('-');
-  return `${y}年${parseInt(m, 10)}月${parseInt(d, 10)}日`;
-}
-
-function escapeHtml(str) {
-  return str.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
-}
-
+// --- データのエクスポート & インポート ---
 function exportData() {
-  const exportPayload = { records, fixedCosts };
-  const blob = new Blob([JSON.stringify(exportPayload, null, 2)], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `kakeibo_backup_${new Date().toISOString().split('T')[0]}.json`;
-  a.click();
+  const recordsData = JSON.parse(localStorage.getItem('kakeibo_records') || '[]');
+  const fixedData = JSON.parse(localStorage.getItem('kakeibo_fixed_costs') || '[]');
+
+  const exportObj = {
+    records: recordsData,
+    fixedCosts: fixedData,
+    exportedAt: new Date().toISOString()
+  };
+
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportObj, null, 2));
+  const downloadAnchor = document.createElement('a');
+  downloadAnchor.setAttribute("href", dataStr);
+  downloadAnchor.setAttribute("download", `kakeibo_backup_${new Date().toISOString().slice(0, 10)}.json`);
+  document.body.appendChild(downloadAnchor);
+  downloadAnchor.click();
+  downloadAnchor.remove();
+}
+
+function importData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const importedData = JSON.parse(e.target.result);
+
+      if (Array.isArray(importedData.records) && Array.isArray(importedData.fixedCosts)) {
+        if (confirm('現在のデータを上書きして、選択したバックアップデータを復元しますか？')) {
+          localStorage.setItem('kakeibo_records', JSON.stringify(importedData.records));
+          localStorage.setItem('kakeibo_fixed_costs', JSON.stringify(importedData.fixedCosts));
+          
+          alert('データの読み込みが完了しました！');
+          location.reload();
+        }
+      } else {
+        alert('正しい家計簿バックアップファイル（JSON）ではありません。');
+      }
+    } catch (err) {
+      alert('ファイルの読み込みに失敗しました。正しいJSONファイルを選択してください。');
+    }
+  };
+  reader.readAsText(file);
 }
