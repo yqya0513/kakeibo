@@ -45,7 +45,7 @@ body {
   flex: 1;
   overflow-y: auto;
   padding: 16px;
-  padding-bottom: 90px; /* タブの高さ拡大に合わせて余白調整 */
+  padding-bottom: 105px; /* タブ高さ88pxに合わせて下部余白を調整 */
 }
 
 .page {
@@ -398,7 +398,7 @@ input, select, button {
   top: 0;
   left: 0;
   width: 100%;
-  bottom: 75px; /* ボトムナビの高さに合わせて変更 */
+  bottom: 88px; /* ボトムナビの高さ88pxに合わせて変更 */
   background: var(--bg-color);
   z-index: 500;
   justify-content: center;
@@ -495,19 +495,19 @@ input, select, button {
   border: none;
 }
 
-/* ボトムナビゲーション（拡大調整） */
+/* ボトムナビゲーション（さらに拡大） */
 .bottom-nav {
   position: fixed;
   bottom: 0;
   width: 100%;
   max-width: 430px;
-  height: 75px; /* 65px -> 75px に拡大 */
+  height: 88px; /* 75px -> 88px に大幅拡大 */
   background: var(--nav-bg);
   display: flex;
   justify-content: space-around;
   align-items: center;
   z-index: 600;
-  padding-bottom: 4px;
+  padding-bottom: 8px;
 }
 
 .nav-item {
@@ -518,7 +518,8 @@ input, select, button {
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  font-size: 13px !important; /* 11px -> 13px に拡大 */
+  font-size: 14px !important; /* 13px -> 14px に拡大 */
+  font-weight: bold;
   cursor: pointer;
   flex: 1;
   height: 100%;
@@ -526,7 +527,7 @@ input, select, button {
 }
 
 .nav-item i {
-  font-size: 22px !important; /* 18px -> 22px に拡大 */
+  font-size: 26px !important; /* 22px -> 26px に拡大 */
 }
 
 .nav-item.active {
