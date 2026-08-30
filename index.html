@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>家計簿アプリ</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -108,11 +108,11 @@
           <div class="fixed-amount-inputs">
             <div>
               <label>月額</label>
-              <input type="number" id="fixed-monthly-input" placeholder="月額" oninput="calcFixedAmount('monthly')">
+              <input type="number" id="fixed-monthly-input" placeholder="月額" inputmode="numeric" oninput="calcFixedAmount('monthly')">
             </div>
             <div>
               <label>年額</label>
-              <input type="number" id="fixed-yearly-input" placeholder="年額" oninput="calcFixedAmount('yearly')">
+              <input type="number" id="fixed-yearly-input" placeholder="年額" inputmode="numeric" oninput="calcFixedAmount('yearly')">
             </div>
           </div>
           <button class="btn-submit" onclick="addFixedCost()" style="margin-top:10px;">決定</button>
@@ -128,13 +128,12 @@
         </div>
         <div class="settings-list">
           <button class="btn-danger" onclick="exportData()">データのエクスポート (JSON)</button>
-          <button class="btn-danger" onclick="clearAllData()">全データの削除</button>
         </div>
       </section>
 
     </main>
 
-    <!-- 編集・詳細モーダル -->
+    <!-- 記録 編集モーダル -->
     <div id="edit-modal" class="modal-overlay">
       <div class="modal-content">
         <div class="modal-header">
@@ -153,10 +152,11 @@
             <div class="date-shortcuts">
               <button onclick="changeEditInputDate(-1)">前日</button>
               <button onclick="setEditTodayDate()">今日</button>
+              <button onclick="changeEditInputDate(1)">翌日</button>
             </div>
           </div>
           <div class="input-group input-with-clear">
-            <input type="number" id="edit-amount" placeholder="金額">
+            <input type="number" id="edit-amount" placeholder="金額" inputmode="numeric">
             <button class="btn-clear" onclick="clearInput('edit-amount')">✕</button>
           </div>
           <div class="input-group input-with-clear">
@@ -164,6 +164,34 @@
             <button class="btn-clear" onclick="clearInput('edit-memo')">✕</button>
           </div>
           <button class="btn-submit" onclick="saveEditRecord()">編集完了</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 固定費 編集モーダル -->
+    <div id="fixed-edit-modal" class="modal-overlay">
+      <div class="modal-content">
+        <div class="modal-header">
+          <button class="modal-back-btn" onclick="closeFixedEditModal()"><i class="fa-solid fa-chevron-left"></i> 戻る</button>
+          <h3>固定費の編集</h3>
+          <button class="modal-delete-btn" onclick="deleteCurrentFixedCost()"><i class="fa-solid fa-trash-can"></i></button>
+        </div>
+        <div class="card modal-card">
+          <div class="input-group input-with-clear">
+            <input type="text" id="edit-fixed-name" placeholder="内容">
+            <button class="btn-clear" onclick="clearInput('edit-fixed-name')">✕</button>
+          </div>
+          <div class="fixed-amount-inputs">
+            <div>
+              <label>月額</label>
+              <input type="number" id="edit-fixed-monthly" placeholder="月額" inputmode="numeric" oninput="calcEditFixedAmount('monthly')">
+            </div>
+            <div>
+              <label>年額</label>
+              <input type="number" id="edit-fixed-yearly" placeholder="年額" inputmode="numeric" oninput="calcEditFixedAmount('yearly')">
+            </div>
+          </div>
+          <button class="btn-submit" onclick="saveEditFixedCost()" style="margin-top:10px;">編集完了</button>
         </div>
       </div>
     </div>
@@ -183,7 +211,7 @@
       </div>
     </div>
 
-    <!-- ボトムナビゲーションバー -->
+    <!-- ボトムナビゲーションバー（常時表示） -->
     <nav class="bottom-nav">
       <button class="nav-item active" onclick="switchTab('record', this)">
         <i class="fa-solid fa-pen-to-square"></i>
