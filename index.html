@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>家計簿アプリ</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+  <div class="app-container">
+    <main class="content">
+      
+      <section id="page-record" class="page active">
+        <div class="card input-card">
+          <div class="toggle-group">
+            <button id="type-income" class="toggle-btn" onclick="setType('income')">収入</button>
+            <button id="type-expense" class="toggle-btn active" onclick="setType('expense')">支出</button>
+          </div>
+          <div class="date-row">
+            <label>日付</label>
+            <input type="date" id="entry-date">
+            <div class="date-shortcuts">
+              <button onclick="setShortcutDate(-1)">前日</button>
+              <button onclick="setShortcutDate(0)">今日</button>
+            </div>
+          </div>
+          <div class="input-group">
+            <input type="number" id="entry-amount" placeholder="支出額" inputmode="numeric">
+          </div>
+          <div class="input-group">
+            <input type="text" id="entry-memo" placeholder="内容">
+          </div>
+          <button class="btn-submit" onclick="addRecord()">決定</button>
+        </div>
+      </section>
+
+      <section id="page-monthly" class="page">
+        <div class="month-header">
+          <button onclick="changeMonth(-1)"><i class="fa-solid fa-chevron-left"></i> 前月</button>
+          <h2 id="monthly-title">2026年8月</h2>
+          <button onclick="changeMonth(1)">翌月 <i class="fa-solid fa-chevron-right"></i></button>
+        </div>
+        <div class="filter-toggle">
+          <button class="filter-btn" id="m-filter-income" onclick="setMonthlyFilter('income')">収入</button>
+          <button class="filter-btn active" id="m-filter-both" onclick="setMonthlyFilter('both')">両方</button>
+          <button class="filter-btn" id="m-filter-expense" onclick="setMonthlyFilter('expense')">支出</button>
+        </div>
+        <div class="summary-card">
+          <span id="monthly-summary-label">2026年8月</span>
+          <span id="monthly-total-amount" class="amount negative">合計 -0</span>
+        </div>
+        <div id="monthly-list" class="record-list"></div>
+      </section>
+
+      <section id="page-all" class="page">
+        <div class="page-header">
+          <h2>全期間</h2>
+        </div>
+        <div class="filter-toggle">
+          <button class="filter-btn" id="a-filter-income" onclick="setAllFilter('income')">収入</button>
+          <button class="filter-btn active" id="a-filter-both" onclick="setAllFilter('both')">両方</button>
+          <button class="filter-btn" id="a-filter-expense" onclick="setAllFilter('expense')">支出</button>
+        </div>
+        <div class="summary-card">
+          <span>全期間</span>
+          <span id="all-total-amount" class="amount negative">合計 -0</span>
+        </div>
+        <div id="all-period-list" class="record-list"></div>
+      </section>
+
+      <section id="page-settings" class="page">
+        <div class="page-header">
+          <h2>設定</h2>
+        </div>
+        <div class="settings-list">
+          <button class="btn-danger" onclick="exportData()">データのエクスポート (JSON)</button>
+          <button class="btn-danger" onclick="clearAllData()">全データの削除</button>
+        </div>
+      </section>
+
+    </main>
+
+    <nav class="bottom-nav">
+      <button class="nav-item active" onclick="switchTab('record', this)">
+        <i class="fa-solid fa-pen-to-square"></i>
+        <span>記録</span>
+      </button>
+      <button class="nav-item" onclick="switchTab('monthly', this)">
+        <i class="fa-solid fa-calendar-days"></i>
+        <span>月間</span>
+      </button>
+      <button class="nav-item" onclick="switchTab('all', this)">
+        <i class="fa-solid fa-book"></i>
+        <span>全期間</span>
+      </button>
+      <button class="nav-item" onclick="switchTab('settings', this)">
+        <i class="fa-solid fa-gear"></i>
+        <span>設定</span>
+      </button>
+    </nav>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
